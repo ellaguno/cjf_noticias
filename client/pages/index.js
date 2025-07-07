@@ -15,8 +15,10 @@ export default function Home() {
     sections: []
   });
   const [recentArticles, setRecentArticles] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [articlesLoading, setArticlesLoading] = useState(true);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
 
@@ -24,7 +26,6 @@ export default function Home() {
     const fetchLatestNews = async () => {
       try {
         setLoading(true);
-        // Use the API service instead of direct axios call
         const response = await apiService.getLatestNews();
         setLatestNews(response.data);
         setLoading(false);
@@ -38,7 +39,6 @@ export default function Home() {
     const fetchRecentArticles = async () => {
       try {
         setArticlesLoading(true);
-        // Fetch recent articles from multiple sections
         const today = new Date().toISOString().split('T')[0];
         const promises = [
           fetch(`/api/sections/ultimas-noticias?date=${today}&limit=8`),
@@ -56,7 +56,6 @@ export default function Home() {
           }
         });
         
-        // Sort by publication date and take the most recent 16
         allArticles.sort((a, b) => new Date(b.publication_date || b.created_at) - new Date(a.publication_date || a.created_at));
         setRecentArticles(allArticles.slice(0, 16));
         
@@ -67,114 +66,148 @@ export default function Home() {
       }
     };
 
+    const fetchSections = async () => {
+      try {
+        setSectionsLoading(true);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const response = await fetch(`${apiUrl}/sections`);
+        const sectionsData = await response.json();
+        
+        const sectionsWithContent = sectionsData
+          .filter(section => section.articleCount > 0)
+          .map(section => ({
+            ...section,
+            path: getSectionPath(section.id),
+            description: getSectionDescription(section.id),
+            icon: getSectionIcon(section.id)
+          }))
+          .sort((a, b) => {
+            if (a.id === 'ultimas-noticias') return -1;
+            if (b.id === 'ultimas-noticias') return 1;
+            return 0;
+          });
+        
+        setSections(sectionsWithContent);
+      } catch (err) {
+        console.error('Error fetching sections:', err);
+      } finally {
+        setSectionsLoading(false);
+      }
+    };
+
     fetchLatestNews();
     fetchRecentArticles();
+    fetchSections();
   }, []);
 
-  const sections = [
-    {
-      id: 'ocho-columnas',
-      name: 'Ocho Columnas',
-      path: '/section/ocho-columnas',
-      description: 'Principales noticias y titulares de los medios nacionales',
-      icon: (
+  const getSectionPath = (sectionId) => {
+    const sectionPaths = {
+      'ultimas-noticias': '/ultimas-noticias',
+      'ocho-columnas': '/section/ocho-columnas',
+      'primeras-planas': '/section/primeras-planas',
+      'columnas-politicas': '/section/columnas-politicas',
+      'informacion-general': '/section/informacion-general',
+      'cartones': '/section/cartones',
+      'suprema-corte': '/section/suprema-corte',
+      'tribunal-electoral': '/section/tribunal-electoral',
+      'dof': '/section/dof',
+      'consejo-judicatura': '/section/consejo-judicatura',
+      'agenda': '/section/agenda',
+      'sintesis-informativa': '/section/sintesis-informativa'
+    };
+    return sectionPaths[sectionId] || `/section/${sectionId}`;
+  };
+
+  const getSectionDescription = (sectionId) => {
+    const descriptions = {
+      'ultimas-noticias': 'Últimas noticias del día',
+      'ocho-columnas': 'Principales noticias y titulares de los medios nacionales',
+      'primeras-planas': 'Portadas de los principales periódicos nacionales',
+      'columnas-politicas': 'Opiniones y análisis de columnistas sobre temas políticos y judiciales',
+      'informacion-general': 'Noticias generales relacionadas con el ámbito judicial',
+      'cartones': 'Caricaturas políticas y editoriales gráficos',
+      'suprema-corte': 'Noticias y resoluciones de la Suprema Corte de Justicia',
+      'tribunal-electoral': 'Noticias y resoluciones del Tribunal Electoral',
+      'dof': 'Publicaciones relevantes del Diario Oficial de la Federación',
+      'consejo-judicatura': 'Noticias y comunicados del Consejo de la Judicatura Federal',
+      'agenda': 'Agenda de eventos y actividades',
+      'sintesis-informativa': 'Síntesis informativa diaria'
+    };
+    return descriptions[sectionId] || 'Contenido de la sección';
+  };
+
+  const getSectionIcon = (sectionId) => {
+    const icons = {
+      'ultimas-noticias': (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      'ocho-columnas': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1M19 20a2 2 0 002-2V8a2 2 0 00-2-2h-5a2 2 0 00-2 2v12a2 2 0 002 2h5z" />
         </svg>
-      )
-    },
-    {
-      id: 'primeras-planas',
-      name: 'Primeras Planas',
-      path: '/section/primeras-planas',
-      description: 'Portadas de los principales periódicos nacionales',
-      icon: (
+      ),
+      'primeras-planas': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-      )
-    },
-    {
-      id: 'columnas-politicas',
-      name: 'Columnas Políticas',
-      path: '/section/columnas-politicas',
-      description: 'Opiniones y análisis de columnistas sobre temas políticos y judiciales',
-      icon: (
+      ),
+      'columnas-politicas': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
-      )
-    },
-    {
-      id: 'informacion-general',
-      name: 'Información General',
-      path: '/section/informacion-general',
-      description: 'Noticias generales relacionadas con el ámbito judicial',
-      icon: (
+      ),
+      'informacion-general': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-      )
-    },
-    {
-      id: 'cartones',
-      name: 'Cartones',
-      path: '/section/cartones',
-      description: 'Caricaturas políticas y editoriales gráficos',
-      icon: (
+      ),
+      'cartones': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
         </svg>
-      )
-    },
-    {
-      id: 'suprema-corte',
-      name: 'Suprema Corte de Justicia de la Nación',
-      path: '/section/suprema-corte',
-      description: 'Noticias y resoluciones de la Suprema Corte de Justicia',
-      icon: (
+      ),
+      'suprema-corte': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
         </svg>
-      )
-    },
-    {
-      id: 'tribunal-electoral',
-      name: 'Tribunal Electoral del Poder Judicial de la Federación',
-      path: '/section/tribunal-electoral',
-      description: 'Noticias y resoluciones del Tribunal Electoral',
-      icon: (
+      ),
+      'tribunal-electoral': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
         </svg>
-      )
-    },
-    {
-      id: 'dof',
-      name: 'DOF (Diario Oficial)',
-      path: '/section/dof',
-      description: 'Publicaciones relevantes del Diario Oficial de la Federación',
-      icon: (
+      ),
+      'dof': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-      )
-    },
-    {
-      id: 'consejo-judicatura',
-      name: 'CONSEJO DE LA JUDICATURA FEDERAL',
-      path: '/section/consejo-judicatura',
-      description: 'Noticias y comunicados del Consejo de la Judicatura Federal',
-      icon: (
+      ),
+      'consejo-judicatura': (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
+      ),
+      'agenda': (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      'sintesis-informativa': (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
       )
-    }
-  ];
+    };
+    return icons[sectionId] || (
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    );
+  };
 
   const formattedDate = latestNews.date
-    ? format(parseISO(latestNews.date), 'EEEE d \'de\' MMMM \'de\' yyyy', { locale: es })
+    ? format(parseISO(latestNews.date), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })
     : '';
 
   return (
@@ -216,66 +249,38 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <>
-            {/* Latest News Section - Small Cards Grid */}
-            <div className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Últimas Noticias</h2>
-                <Link
-                  href="/ultimas-noticias"
-                  className="text-blue-600 hover:text-blue-800 font-medium flex items-center"
-                >
-                  Ver todas
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-              
-              {articlesLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-                  {[...Array(16)].map((_, i) => (
-                    <div key={i} className="animate-pulse">
-                      <div className="h-32 bg-gray-200 rounded-lg mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : recentArticles.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-                  {recentArticles.map((article) => (
-                    <ArticleCard 
-                      key={article.id} 
-                      article={{
-                        ...article,
-                        date: article.publication_date || article.date
-                      }}
-                      compact={true}
-                      showBanners={false}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1M19 20a2 2 0 002-2V8a2 2 0 00-2-2h-5a2 2 0 00-2 2v12a2 2 0 002 2h5z" />
-                  </svg>
-                  <p>No hay artículos recientes disponibles</p>
-                </div>
-              )}
-            </div>
-
-            {/* Traditional Sections */}
-            <div className="border-t pt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-8">Secciones</h2>
-              <div className="space-y-12">
-                {sections.map((section) => (
-                  <SectionWrapper key={section.id} section={section} />
-                ))}
+          <div className="grid grid-cols-1 gap-8">
+            {/* Main Content Area */}
+            <div className="lg:col-span-1">
+              {/* Dynamic Sections */}
+              <div className="">
+                {sectionsLoading ? (
+                  <div className="space-y-12">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+                        <div className="h-64 bg-gray-200 rounded"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : sections.length > 0 ? (
+                  <div className="space-y-12">
+                    {sections.map((section) => (
+                      <SectionWrapper key={section.id} section={section} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p>No hay secciones con contenido disponible</p>
+                    <p className="text-sm mt-1">Las secciones aparecerán cuando tengan artículos</p>
+                  </div>
+                )}
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </>

@@ -39,6 +39,12 @@ export default function ArticleForm() {
     }
   }, [id, isNewArticle]);
 
+  useEffect(() => {
+    if (article && article.image_url) {
+      setImagePreview(article.image_url);
+    }
+  }, [article]);
+
   const fetchSections = async () => {
     try {
       const data = await sectionApi.getSections();

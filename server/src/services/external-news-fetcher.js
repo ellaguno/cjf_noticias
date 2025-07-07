@@ -1,6 +1,9 @@
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
+const cheerio = require('cheerio');
 const { query, run, get } = require('../../database');
 const { createLogger } = require('../utils/logger');
 
@@ -9,10 +12,45 @@ const logger = createLogger('external-news-fetcher');
 class ExternalNewsFetcher {
   constructor() {
     this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+    this.storagePath = path.join(__dirname, '../../../storage/images/external');
+    if (!fs.existsSync(this.storagePath)) {
+      fs.mkdirSync(this.storagePath, { recursive: true });
+    }
+  }
+
+  async downloadImage(imageUrl, sourceName) {
+    if (!imageUrl) return null;
+
+    try {
+      const url = new URL(imageUrl);
+      const filename = `${Date.now()}_${path.basename(url.pathname)}`;
+      const localPath = path.join(this.storagePath, filename);
+      const publicPath = `/storage/images/external/${filename}`;
+
+      const client = imageUrl.startsWith('https') ? https : http;
+
+      const response = await new Promise((resolve, reject) => {
+        client.get(imageUrl, (res) => {
+          if (res.statusCode === 200) {
+            const fileStream = fs.createWriteStream(localPath);
+            res.pipe(fileStream);
+            fileStream.on('finish', () => resolve({ success: true, path: publicPath }));
+            fileStream.on('error', (err) => reject(new Error(`Failed to write image to disk: ${err.message}`)))
+          } else {
+            reject(new Error(`Failed to download image, status code: ${res.statusCode}`));
+          }
+        }).on('error', (err) => reject(new Error(`Failed to download image: ${err.message}`)));
+      });
+
+      return response.path;
+    } catch (error) {
+      logger.error(`Error downloading image from ${imageUrl}:`, error);
+      return null;
+    }
   }
 
   // Fetch content from URL
-  async fetchUrl(url) {
+  async fetchUrl(url, responseType = 'text') {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
       const client = urlObj.protocol === 'https:' ? https : http;
@@ -24,21 +62,25 @@ class ExternalNewsFetcher {
         method: 'GET',
         headers: {
           'User-Agent': this.userAgent,
-          'Accept': 'application/rss+xml, application/xml, text/xml, application/json'
+          'Accept': responseType === 'text' ? 'text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8' : 'application/rss+xml, application/xml, text/xml, application/json'
         },
-        timeout: 30000
+        timeout: 60000
       };
 
       const req = client.request(options, (res) => {
-        let data = '';
+        let data = [];
         
         res.on('data', (chunk) => {
-          data += chunk;
+          data.push(chunk);
         });
         
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(data);
+            if (responseType === 'text') {
+              resolve(Buffer.concat(data).toString());
+            } else {
+              resolve(Buffer.concat(data));
+            }
           } else {
             reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
           }
@@ -77,6 +119,74 @@ class ExternalNewsFetcher {
     return articles;
   }
 
+  // Extract the best image from an HTML page
+  extractBestImage(htmlContent, articleUrl) {
+    const $ = cheerio.load(htmlContent);
+    let imageUrl = null;
+
+    // 1. Try Open Graph image
+    imageUrl = $('meta[property="og:image"]').attr('content');
+    if (imageUrl) return imageUrl;
+
+    // 2. Try Twitter Card image
+    imageUrl = $('meta[name="twitter:image"]').attr('content');
+    if (imageUrl) return imageUrl;
+
+    // 3. Look for images within the article content
+    const articleImages = $('article img, .entry-content img, .post-content img');
+    let bestImage = null;
+    let bestScore = -1;
+
+    articleImages.each((i, el) => {
+      const src = $(el).attr('src');
+      if (!src) return;
+
+      // Basic validation for image URLs
+      if (!src.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) return;
+
+      // Avoid small images (icons, spacers)
+      const width = parseInt($(el).attr('width'), 10);
+      const height = parseInt($(el).attr('height'), 10);
+      if (width > 0 && height > 0 && (width < 100 || height < 100)) return;
+
+      // Avoid common non-content images
+      if (src.includes('logo') || src.includes('icon') || src.includes('avatar') || src.includes('ads')) return;
+
+      // Calculate a score based on size (if available) and position
+      let score = 0;
+      if (width && height) {
+        score = width * height; // Prioritize larger images
+      }
+
+      // Prioritize images closer to the top of the content
+      score -= i * 100; 
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestImage = src;
+      }
+    });
+
+    if (bestImage) return bestImage;
+
+    // 4. Fallback to any image on the page (larger than a threshold)
+    $('img').each((i, el) => {
+      const src = $(el).attr('src');
+      if (!src) return;
+      if (!src.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i)) return;
+
+      const width = parseInt($(el).attr('width'), 10);
+      const height = parseInt($(el).attr('height'), 10);
+      if (width > 0 && height > 0 && (width < 200 || height < 200)) return; // Larger threshold for general images
+
+      if (src.includes('logo') || src.includes('icon') || src.includes('avatar') || src.includes('ads')) return;
+
+      if (!imageUrl) imageUrl = src; // Take the first reasonably sized image
+    });
+
+    return imageUrl;
+  }
+
   // Parse individual RSS item
   parseRssItem(itemXml) {
     try {
@@ -88,16 +198,6 @@ class ExternalNewsFetcher {
                      this.extractXmlContent(itemXml, 'content') || 
                      description;
 
-      // Extract image from description or enclosure
-      let imageUrl = this.extractImageFromContent(content || description);
-      if (!imageUrl) {
-        const enclosure = this.extractXmlContent(itemXml, 'enclosure');
-        if (enclosure && enclosure.includes('image')) {
-          const urlMatch = enclosure.match(/url="([^"]*)"/) || enclosure.match(/url='([^']*)'/);
-          if (urlMatch) imageUrl = urlMatch[1];
-        }
-      }
-
       if (!title || !link) {
         return null;
       }
@@ -107,7 +207,6 @@ class ExternalNewsFetcher {
         content: this.cleanText(content || description || ''),
         summary: this.cleanText(description || '').substring(0, 500),
         source_url: link,
-        image_url: imageUrl,
         publication_date: this.parseDate(pubDate)
       };
     } catch (error) {
@@ -236,16 +335,29 @@ class ExternalNewsFetcher {
       const content = await this.fetchUrl(source.rss_url);
       const articles = this.parseRssFeed(content);
       
-      // Add source information and handle images
-      const processedArticles = articles.map(article => ({
-        ...article,
-        source: source.name,
-        external_source_id: source.id,
-        section_id: 'ultimas-noticias', // Default section for external news
-        image_url: article.image_url || this.generateFallbackImage(source, article.title)
-      }));
+      const processedArticles = [];
+      for (const article of articles) {
+        let imageUrl = null;
+        if (article.source_url) {
+          try {
+            const articleHtml = await this.fetchUrl(article.source_url, 'text');
+            imageUrl = this.extractBestImage(articleHtml, article.source_url);
+          } catch (htmlError) {
+            logger.warn(`Could not fetch article HTML for ${article.source_url}: ${htmlError.message}`);
+          }
+        }
 
-      logger.info(`Fetched ${processedArticles.length} articles from ${source.name}`);
+        const downloadedImageUrl = await this.downloadImage(imageUrl, source.name);
+        processedArticles.push({
+          ...article,
+          source: source.name,
+          external_source_id: source.id,
+          section_id: 'ultimas-noticias',
+          image_url: downloadedImageUrl
+        });
+      }
+
+      logger.info(`Fetched and processed ${processedArticles.length} articles from ${source.name}`);
       return processedArticles;
       
     } catch (error) {

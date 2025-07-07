@@ -115,12 +115,12 @@ async function pdfExtractionJob() {
     // Download the PDF
     const filePath = await downloadPDF();
     
-    // Extract content using new comprehensive extractor
-    const { extractComprehensiveContent } = require('../pdf/newPdfExtractor');
-    const content = await extractComprehensiveContent(filePath);
+    // Extract content using enhanced extractor
+    const { extractEnhancedContent } = require('../pdf/enhancedPdfExtractor');
+    const content = await extractEnhancedContent(filePath);
     
-    // Process and store content using new processor
-    const { processExtractedContent, clearExistingData } = require('../content/newContentProcessor');
+    // Process and store content using enhanced processor
+    const { processExtractedContent, clearExistingData } = require('../content/enhancedContentProcessor');
     
     // Clear existing data for this date first
     const date = path.basename(filePath, '.pdf');
@@ -129,12 +129,12 @@ async function pdfExtractionJob() {
     // Process the extracted content
     const results = await processExtractedContent(content);
     
-    logger.info(`Comprehensive PDF extraction job completed successfully.`);
-    logger.info(`Processed ${results.primerasPlanas.processed} primeras-planas`);
+    logger.info(`Enhanced PDF extraction job completed successfully.`);
+    logger.info(`Processed ${results.statistics.totalSections} sections with ${results.statistics.totalArticles} total articles`);
     Object.entries(results.sections).forEach(([section, data]) => {
-      logger.info(`Processed ${data.processed} articles in section ${section}`);
+      logger.info(`Section ${section}: ${data.processed} articles processed`);
     });
-    logger.info(`Stored ${results.images.processed} page images`);
+    logger.info(`Stored ${results.statistics.totalImages} images`);
     
     return results;
   } catch (error) {
@@ -187,12 +187,12 @@ async function runExtractionJob(date = null) {
         throw new Error(`PDF file for date ${date} does not exist`);
       }
       
-      // Extract content from the existing PDF using new comprehensive extractor
-      const { extractComprehensiveContent } = require('../pdf/newPdfExtractor');
-      const content = await extractComprehensiveContent(pdfPath);
+      // Extract content from the existing PDF using enhanced extractor
+      const { extractEnhancedContent } = require('../pdf/enhancedPdfExtractor');
+      const content = await extractEnhancedContent(pdfPath);
       
-      // Process and store content using new processor
-      const { processExtractedContent, clearExistingData } = require('../content/newContentProcessor');
+      // Process and store content using enhanced processor
+      const { processExtractedContent, clearExistingData } = require('../content/enhancedContentProcessor');
       
       // Clear existing data for this date first
       await clearExistingData(date);

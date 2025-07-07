@@ -541,6 +541,53 @@ router.get('/settings', async (req, res, next) => {
   }
 });
 
+// Get specific setting
+router.get('/settings/:key', async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    const setting = await get(`SELECT * FROM SETTINGS WHERE key = ?`, [key]);
+    
+    if (!setting) {
+      return res.status(404).json({ error: 'Setting not found' });
+    }
+    
+    res.json(setting);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update or create setting
+router.put('/settings/:key', authorize(['admin']), async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body;
+    
+    // Check if setting exists
+    const existingSetting = await get(`SELECT * FROM SETTINGS WHERE key = ?`, [key]);
+    
+    if (existingSetting) {
+      // Update existing setting
+      await run(
+        `UPDATE SETTINGS SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?`,
+        [value, key]
+      );
+    } else {
+      // Create new setting
+      await run(
+        `INSERT INTO SETTINGS (key, value, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [key, value]
+      );
+    }
+    
+    // Return updated setting
+    const updatedSetting = await get(`SELECT * FROM SETTINGS WHERE key = ?`, [key]);
+    res.json(updatedSetting);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // EXTRACTION ROUTES
 
 // Get extraction status
@@ -670,6 +717,23 @@ router.post('/extraction/run', authorize(['admin', 'editor']), async (req, res, 
       })]
     );
     
+    next(error);
+  }
+});
+
+const ExternalNewsFetcher = require('../src/services/external-news-fetcher');
+
+// Trigger manual extraction from external sources
+router.post('/extraction/run-external', authorize(['admin', 'editor']), async (req, res, next) => {
+  try {
+    const fetcher = new ExternalNewsFetcher();
+    const articles = await fetcher.fetchFromAllSources();
+    res.json({ 
+      success: true, 
+      message: 'External news fetch completed successfully.', 
+      articles_fetched: articles.length 
+    });
+  } catch (error) {
     next(error);
   }
 });

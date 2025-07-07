@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import Navigation from './Navigation';
 import SearchBar from './SearchBar';
 import Footer from './Footer';
@@ -7,10 +8,56 @@ import CalendarWidget from './CalendarWidget';
 
 export default function Layout({ children }) {
   const [showCalendar, setShowCalendar] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('/logo-cjf.png');
+  const [logoLink, setLogoLink] = useState('/');
 
   const toggleCalendar = () => {
     setShowCalendar(!showCalendar);
   };
+
+  useEffect(() => {
+    // Load custom CSS settings
+    const loadCSSSettings = async () => {
+      try {
+        const response = await fetch('/api/admin/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          
+          settings.forEach(setting => {
+            if (setting.key === 'css_logo_url') {
+              setLogoUrl(setting.value);
+            }
+            if (setting.key === 'css_logo_link') {
+              setLogoLink(setting.value);
+            }
+            if (setting.key === 'css_primary_color') {
+              document.documentElement.style.setProperty('--primary-color', setting.value);
+            }
+            if (setting.key === 'css_section_text_color') {
+              document.documentElement.style.setProperty('--section-text-color', setting.value);
+            }
+            if (setting.key === 'css_header_bg') {
+              document.documentElement.style.setProperty('--header-bg-color', setting.value);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error loading CSS settings:', error);
+      }
+    };
+
+    loadCSSSettings();
+
+    // Listen for CSS settings changes
+    const handleCSSChange = (event) => {
+      const settings = event.detail;
+      if (settings.css_logo_url) setLogoUrl(settings.css_logo_url);
+      if (settings.css_logo_link) setLogoLink(settings.css_logo_link);
+    };
+
+    window.addEventListener('cssSettingsChanged', handleCSSChange);
+    return () => window.removeEventListener('cssSettingsChanged', handleCSSChange);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -19,20 +66,22 @@ export default function Layout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <header className="bg-white shadow-md">
+      <header className="bg-white shadow-md" style={{backgroundColor: 'var(--header-bg-color, #ffffff)'}}>
         <div className="container mx-auto px-4 py-3">
           {/* Top row with logo, navigation, search and date/calendar */}
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <img 
-                src="/logo-cjf.png" 
-                alt="Logo CJF" 
-                className="h-10"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = 'https://www.cjf.gob.mx/resources/index/images/logo-cjf.png';
-                }}
-              />
+              <Link href={logoLink}>
+                <img 
+                  src={logoUrl} 
+                  alt="Logo CJF" 
+                  className="h-10 cursor-pointer"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://www.cjf.gob.mx/resources/index/images/logo-cjf.png';
+                  }}
+                />
+              </Link>
               <Navigation />
             </div>
             

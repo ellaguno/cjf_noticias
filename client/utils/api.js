@@ -122,8 +122,14 @@ const cachedRequest = async (requestFn, cacheKey, skipCache = false) => {
 // API methods
 export const apiService = {
   // Articles
-  getLatestNews: (skipCache = true) =>
-    cachedRequest(() => api.get('/latest'), 'latest-news', true), // Always skip cache for latest news
+  getLatestNews: (params = {}, skipCache = true) => {
+    const queryString = new URLSearchParams(params).toString();
+    return cachedRequest(
+      () => api.get('/latest-articles', { params }),
+      `latest-news-${queryString || 'default'}`,
+      true // Always skip cache for latest news
+    );
+  },
   
   getArticleById: (id, skipCache = false) =>
     cachedRequest(() => api.get(`/articles/${id}`), `article-${id}`, skipCache),

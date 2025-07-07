@@ -175,7 +175,8 @@ export default function ArticlesManagement() {
       render: (article) => (
         <button
           onClick={() => handleView(article)}
-          className="font-medium text-gray-900 hover:text-blue-600 text-left cursor-pointer underline-none hover:underline"
+          className="font-medium text-gray-900 hover:text-blue-600 text-left cursor-pointer underline-none hover:underline max-w-xs truncate block"
+          title={article.title}
         >
           {article.title}
         </button>

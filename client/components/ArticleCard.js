@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { format } from 'date-fns/index.js';
 import es from 'date-fns/locale/es/index.js';
 import { useState } from 'react';
@@ -14,24 +13,30 @@ export default function ArticleCard({ article, compact = false, showBanners = tr
     source_url,
     image_url,
     date,
-    imageUrl,
-    images,
-    sectionId,
-    content,
+    publication_date,
     url,
     external_source_id
   } = article;
 
-  // Get the first image URL from images array, image_url, or direct imageUrl
-  const firstImageUrl = image_url || 
-    (images && images.length > 0 
-      ? (images[0].url || (images[0].filename?.startsWith('/storage') ? images[0].filename : `/storage/uploads/${images[0].filename}`))
-      : imageUrl);
+  // Prioritize image_url from the article object
+  const displayImageUrl = image_url;
 
-  // Format the date
-  const formattedDate = date
-    ? format(new Date(date), 'dd MMM yyyy', { locale: es })
-    : '';
+  // Safely format the date - use publication_date or date
+  const dateToFormat = publication_date || date;
+  let formattedDate = '';
+  if (dateToFormat) {
+    const potentialDate = new Date(dateToFormat + 'T12:00:00');
+    if (!isNaN(potentialDate.getTime())) {
+      formattedDate = format(potentialDate, 'dd MMM yyyy', { locale: es });
+    } else {
+      const fallbackDate = new Date(dateToFormat);
+      if (!isNaN(fallbackDate.getTime())) {
+        formattedDate = format(fallbackDate, 'dd MMM yyyy', { locale: es });
+      } else {
+        console.warn('Invalid date value received:', dateToFormat);
+      }
+    }
+  }
 
   const isExternal = external_source_id || source_url;
 
@@ -47,30 +52,13 @@ export default function ArticleCard({ article, compact = false, showBanners = tr
           </Link>
         </h3>
         
-        {firstImageUrl && !imageError && !compact && (
-          <div className="flex justify-center mb-4">
+        {displayImageUrl && !imageError && (
+          <div className={`mb-4 ${compact ? 'h-32' : 'h-48'}`}>
             <img
-              src={firstImageUrl}
-              alt={source || 'Imagen del artículo'}
-              className="max-h-48 w-auto object-contain rounded-lg shadow-sm"
-              onError={(e) => {
-                setImageError(true);
-                e.target.onerror = null;
-              }}
-            />
-          </div>
-        )}
-        
-        {firstImageUrl && !imageError && compact && (
-          <div className={`flex justify-center mb-3 ${compact ? 'h-12' : 'h-16'}`}>
-            <img
-              src={firstImageUrl}
-              alt={source || 'Imagen del artículo'}
-              className="h-full object-contain rounded"
-              onError={(e) => {
-                setImageError(true);
-                e.target.onerror = null;
-              }}
+              src={displayImageUrl}
+              alt={title || 'Imagen del artículo'}
+              className="w-full h-full object-cover rounded-lg"
+              onError={() => setImageError(true)}
             />
           </div>
         )}

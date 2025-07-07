@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
-  timeout: 60000, // Increased timeout to 60 seconds
+  timeout: 300000, // Increased timeout to 5 minutes for external extraction
   headers: {
     'Content-Type': 'application/json'
   }
@@ -210,6 +210,11 @@ export const extractionApi = {
   
   triggerExtraction: async (date = null) => {
     const response = await api.post('/admin/extraction/run', date ? { date } : {});
+    return response.data;
+  },
+  
+  triggerExternalExtraction: async () => {
+    const response = await api.post('/admin/extraction/run-external');
     return response.data;
   },
   

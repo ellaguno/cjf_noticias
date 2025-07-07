@@ -37,7 +37,12 @@ export default function Navigation() {
         .map(section => ({
           ...section,
           path: sectionPaths[section.id] || `/section/${section.id}`
-        }));
+        }))
+        .sort((a, b) => {
+          if (a.id === 'ultimas-noticias') return -1;
+          if (b.id === 'ultimas-noticias') return 1;
+          return 0;
+        });
       
       setSections(sectionsWithContent);
     } catch (error) {
@@ -81,7 +86,12 @@ export default function Navigation() {
               .map(section => ({
                 ...section,
                 path: sectionPaths[section.id] || `/section/${section.id}`
-              }));
+              }))
+              .sort((a, b) => {
+                if (a.id === 'ultimas-noticias') return -1;
+                if (b.id === 'ultimas-noticias') return 1;
+                return 0;
+              });
             setSections(sectionsWithContent);
             setLoading(false);
             return;
@@ -109,7 +119,12 @@ export default function Navigation() {
           .map(section => ({
             ...section,
             path: sectionPaths[section.id] || `/section/${section.id}`
-          }));
+          }))
+          .sort((a, b) => {
+            if (a.id === 'ultimas-noticias') return -1;
+            if (b.id === 'ultimas-noticias') return 1;
+            return 0;
+          });
         
         setSections(sectionsWithContent);
       } catch (error) {

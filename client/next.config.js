@@ -18,6 +18,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/:path*`,
       },
+      {
+        source: '/storage/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3000'}/storage/:path*`,
+      },
     ];
   },
 };

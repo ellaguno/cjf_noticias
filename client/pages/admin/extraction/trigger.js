@@ -143,6 +143,30 @@ export default function TriggerExtraction() {
     }
   };
 
+  const handleTriggerExternalExtraction = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setStatus('starting');
+
+      const response = await extractionApi.triggerExternalExtraction();
+
+      if (response.success) {
+        setStatus('completed');
+        setSuccess(response.message);
+      } else {
+        throw new Error(response.message || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Error triggering external extraction:', err);
+      setError(err.message || 'Failed to trigger external extraction. Please try again.');
+      setStatus('failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRefreshStatus = async () => {
     await fetchExtractionStatus();
     await fetchAvailablePDFs();
@@ -229,6 +253,24 @@ export default function TriggerExtraction() {
                 </button>
               </div>
               
+              <div className="mb-6 border-b border-gray-200 pb-6">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Re-extract External News Sources:</h4>
+                <button
+                  type="button"
+                  onClick={handleTriggerExternalExtraction}
+                  disabled={loading || status === 'in_progress'}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 ${
+                    (loading || status === 'in_progress') ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <FiRefreshCw className="-ml-1 mr-2 h-5 w-5" />
+                  Re-extract External Sources
+                </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  This will re-fetch and process articles from all active external news sources.
+                </p>
+              </div>
+
               <h4 className="text-sm font-medium text-gray-900 mb-2">Download & Extract New PDF:</h4>
               <div className="flex items-center">
                 <button

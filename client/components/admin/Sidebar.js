@@ -13,7 +13,8 @@ import {
   FiChevronRight,
   FiList,
   FiAlertCircle,
-  FiGlobe
+  FiGlobe,
+  FiEdit3
 } from 'react-icons/fi';
 
 export default function Sidebar() {
@@ -108,6 +109,10 @@ export default function Sidebar() {
         {
           title: 'System Settings',
           path: '/admin/settings'
+        },
+        {
+          title: 'Customization',
+          path: '/admin/customization'
         },
         {
           title: 'System Logs',

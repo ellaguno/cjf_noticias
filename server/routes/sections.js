@@ -56,6 +56,8 @@ router.get('/:sectionId', async (req, res, next) => {
   try {
     const { sectionId } = req.params;
     const { date } = req.query;
+    const limit = parseInt(req.query.limit, 10) || 12; // Default limit
+    const offset = parseInt(req.query.offset, 10) || 0; // Default offset
     
     // Validate section ID
     const validSections = [
@@ -71,13 +73,11 @@ router.get('/:sectionId', async (req, res, next) => {
     
     // Handle external-news and ultimas-noticias sections differently
     if (sectionId === 'external-news' || sectionId === 'ultimas-noticias') {
-      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
-      
       // Get external articles
       const articles = await query(
         `SELECT * FROM ARTICLE WHERE section_id = ?
-         ORDER BY created_at DESC LIMIT ?`,
-        [sectionId, limit]
+         ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+        [sectionId, limit, offset]
       );
       
       return res.json({
@@ -108,8 +108,8 @@ router.get('/:sectionId', async (req, res, next) => {
     
     // Get articles for the section
     const articles = await query(
-      `SELECT * FROM ARTICLE WHERE ${conditions.join(' AND ')} ORDER BY id DESC`,
-      params
+      `SELECT * FROM ARTICLE WHERE ${conditions.join(' AND ')} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
     
     // For image sections, also get images associated with articles
@@ -126,8 +126,8 @@ router.get('/:sectionId', async (req, res, next) => {
               SELECT MAX(publication_date) as date FROM IMAGE
             )
           )`
-        }`,
-        date ? [sectionId, date] : [sectionId]
+        } ORDER BY id DESC LIMIT ? OFFSET ?`,
+        date ? [sectionId, date, limit, offset] : [sectionId, limit, offset]
       );
     } else {
       // For non-image sections, only get unassociated images
@@ -140,8 +140,8 @@ router.get('/:sectionId', async (req, res, next) => {
               SELECT MAX(publication_date) as date FROM IMAGE
             )
           )`
-        }`,
-        date ? [sectionId, date] : [sectionId]
+        } ORDER BY id DESC LIMIT ? OFFSET ?`,
+        date ? [sectionId, date, limit, offset] : [sectionId, limit, offset]
       );
     }
     
@@ -241,7 +241,7 @@ router.get('/:sectionId/preview', async (req, res, next) => {
         `SELECT id, title, filename as imageUrl, NULL as source, publication_date as date, 'image' as type
          FROM IMAGE
          WHERE section_id = ? AND publication_date = ?
-         LIMIT 5`,
+         LIMIT 6`,
         [sectionId, date]
       );
       
@@ -257,7 +257,7 @@ router.get('/:sectionId/preview', async (req, res, next) => {
                 (SELECT filename FROM IMAGE WHERE article_id = a.id LIMIT 1) as imageUrl
          FROM ARTICLE a
          WHERE a.section_id = ? AND a.publication_date = ? 
-         LIMIT 5`,
+         LIMIT 6`,
         [sectionId, date]
       );
     }
