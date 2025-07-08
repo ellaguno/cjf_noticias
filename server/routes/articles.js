@@ -23,10 +23,25 @@ router.get('/:id', async (req, res, next) => {
       [id]
     );
     
+    // Normalize image URLs
+    const normalizedImages = images.map(image => ({
+      ...image,
+      filename: image.filename && !image.filename.startsWith('/storage/') 
+        ? `/storage/${image.filename.startsWith('/') ? image.filename.substring(1) : image.filename}`
+        : image.filename
+    }));
+    
+    // Normalize article image_url
+    let normalizedImageUrl = article.image_url;
+    if (normalizedImageUrl && !normalizedImageUrl.startsWith('http') && !normalizedImageUrl.startsWith('/storage/')) {
+      normalizedImageUrl = `/storage/${normalizedImageUrl.startsWith('/') ? normalizedImageUrl.substring(1) : normalizedImageUrl}`;
+    }
+    
     // Return article with images
     res.json({
       ...article,
-      images: images || []
+      image_url: normalizedImageUrl,
+      images: normalizedImages
     });
   } catch (error) {
     next(error);

@@ -67,7 +67,7 @@ export default function SectionWrapper({ section, maxItems = 6 }) {
       {/* Content Area */}
       <div className="flex-1">
         <div className="p-4">
-          <SectionPreview sectionId={section.id} maxItems={maxItems} compact={true} />
+          <SectionPreview sectionId={section.id} maxItems={6} compact={true} />
         </div>
       </div>
     </div>

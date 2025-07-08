@@ -22,17 +22,26 @@ export default function ArticlePage() {
         setLoading(true);
         const articleResponse = await apiService.getArticleById(id);
         const articleData = articleResponse.data;
+        
+        // Ensure compatibility with both sectionId and section_id
+        if (articleData.section_id && !articleData.sectionId) {
+          articleData.sectionId = articleData.section_id;
+        }
+        
         setArticle(articleData);
 
-        if (articleData.sectionId) {
+        if (articleData.section_id) {
           const sectionResponse = await apiService.getSectionContent(
-            articleData.sectionId, 
-            { limit: 20, exclude: id }
+            articleData.section_id, 
+            { limit: 20 }
           );
-          setSidebarNews(sectionResponse.data.items || []);
+          // Filtrar el artículo actual de los resultados
+          const filteredItems = (sectionResponse.data.articles || sectionResponse.data.items || [])
+            .filter(item => item.id != id);
+          setSidebarNews(filteredItems);
         } else {
           const latestNewsResponse = await apiService.getLatestNews({ limit: 20 });
-          setSidebarNews(latestNewsResponse.data.articles.filter(item => item.id !== id) || []);
+          setSidebarNews((latestNewsResponse.data.articles || []).filter(item => item.id != id));
         }
         
         setLoading(false);
@@ -66,9 +75,17 @@ export default function ArticlePage() {
     ? format(new Date(article.date), 'EEEE d \'de\' MMMM \'de\' yyyy', { locale: es })
     : '';
 
-  const mainImageUrl = article?.imageUrl || (article?.images && article.images.length > 0
-    ? (article.images[0].url || (article.images[0].filename?.startsWith('/storage') ? article.images[0].filename : `/storage/uploads/${article.images[0].filename}`))
-    : null);
+  const getImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('/storage/')) return imageUrl;
+    if (imageUrl.startsWith('/images/')) return `/storage${imageUrl}`;
+    if (imageUrl.startsWith('images/')) return `/storage/${imageUrl}`;
+    return `/storage/images/${imageUrl}`;
+  };
+
+  const mainImageUrl = getImageUrl(article?.image_url) || 
+    (article?.images && article.images.length > 0 ? getImageUrl(article.images[0].filename) : null);
 
   const sourceLink = article?.source_url || article?.url || `https://www.google.com/search?q=${encodeURIComponent(article?.title || '')}`;
   const linkLabel = article?.source_url || article?.url ? 'Ver fuente original' : 'Buscar en Google';
@@ -104,12 +121,9 @@ export default function ArticlePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <article className="bg-white rounded-lg shadow-md overflow-hidden">
-                {mainImageUrl && (
-                  <div className="mb-6"><img src={mainImageUrl} alt={article.title} className="w-full h-auto max-h-[500px] object-contain rounded-lg" onError={(e) => { e.target.style.display = 'none'; }} /></div>
-                )}
                 <div className="p-6">
                   <div className="mb-6">
-                    {article.sectionId && <Link href={`/section/${article.sectionId}`} className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full mb-3">{formatSectionName(article.sectionId)}</Link>}
+                    {article.section_id && <Link href={`/section/${article.section_id}`} className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full mb-3">{formatSectionName(article.section_id)}</Link>}
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">{article.title}</h1>
                     <div className="flex flex-wrap items-center text-sm text-gray-600 mb-4">
                       {article.source && <span className="mr-4 mb-2"><strong>Fuente:</strong> {article.source}</span>}
@@ -122,6 +136,9 @@ export default function ArticlePage() {
                         {linkLabel}
                       </a>
                     </div>
+                    {mainImageUrl && (
+                      <div className="mb-6"><img src={mainImageUrl} alt={article.title} className="w-full h-auto max-h-[500px] object-contain rounded-lg" onError={(e) => { e.target.style.display = 'none'; }} /></div>
+                    )}
                     {article.summary && <div className="bg-gray-50 border-l-4 border-blue-500 p-4 mb-6"><p className="text-gray-700 italic">{article.summary}</p></div>}
                   </div>
                   <div className="prose prose-blue max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
@@ -130,7 +147,7 @@ export default function ArticlePage() {
             </div>
             <div className="lg:col-span-1">
               <div className="bg-white rounded-lg shadow-md overflow-hidden sticky top-8">
-                <div className="p-4 bg-primary text-white"><h2 className="font-semibold">{article.sectionId ? `Más de ${formatSectionName(article.sectionId)}` : 'Noticias Recientes'}</h2></div>
+                <div className="p-4 bg-primary text-white"><h2 className="font-semibold">{article.section_id ? `Más de ${formatSectionName(article.section_id)}` : 'Noticias Recientes'}</h2></div>
                 <div className="p-4 max-h-[600px] overflow-y-auto">
                   {sidebarNews.length > 0 ? (
                     <div className="space-y-3">

@@ -2,14 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import ArticleCard from './ArticleCard';
 import ImageCard from './ImageCard';
+import ImageCarousel from './ImageCarousel';
 import { apiService } from '../utils/api';
 
 export default function SectionPreview({ sectionId, maxItems = 6, showViewAll = true, compact = false }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollContainerRef = useRef(null);
+  const [showCarousel, setShowCarousel] = useState(false);
+  const [carouselStartIndex, setCarouselStartIndex] = useState(0);
 
   const isImageSection = sectionId === 'primeras-planas' || sectionId === 'cartones' || sectionId === 'columnas-politicas';
 
@@ -39,18 +40,13 @@ export default function SectionPreview({ sectionId, maxItems = 6, showViewAll = 
     fetchSectionItems();
   }, [sectionId, maxItems, isImageSection]);
 
-  const handleNext = () => {
-    const newIndex = currentIndex + (compact ? 6 : 4);
-    if (newIndex < items.length) {
-      setCurrentIndex(newIndex);
-    }
+  const openCarousel = (startIndex = 0) => {
+    setCarouselStartIndex(startIndex);
+    setShowCarousel(true);
   };
 
-  const handlePrev = () => {
-    const newIndex = currentIndex - (compact ? 6 : 4);
-    if (newIndex >= 0) {
-      setCurrentIndex(newIndex);
-    }
+  const closeCarousel = () => {
+    setShowCarousel(false);
   };
 
   if (loading) {
@@ -61,39 +57,35 @@ export default function SectionPreview({ sectionId, maxItems = 6, showViewAll = 
     return null;
   }
 
-  const visibleItems = isImageSection ? items.slice(currentIndex, currentIndex + maxItems) : items;
+  const visibleItems = isImageSection ? items.slice(0, maxItems) : items;
 
   return (
     <div className="w-full relative">
-      {isImageSection && items.length > maxItems && (
-        <div className="absolute top-1/2 -translate-y-1/2 flex justify-between w-full z-10">
-          <button 
-            onClick={handlePrev} 
-            disabled={currentIndex === 0}
-            className="bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed -ml-4"
-          >
-            <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button 
-            onClick={handleNext} 
-            disabled={currentIndex + maxItems >= items.length}
-            className="bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed -mr-4"
-          >
-            <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-      )}
       <div className={`grid ${compact ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'} gap-3`}>
-        {visibleItems.map((item) => (
+        {visibleItems.map((item, index) => (
           <div key={item.id}>
             {item.type === 'image' ? (
-              <ImageCard image={item} compact={compact} />
+              <ImageCard 
+                image={item} 
+                compact={compact} 
+                onImageClick={isImageSection ? () => openCarousel(index) : undefined}
+              />
             ) : (
               <ArticleCard article={item} compact={compact} showBanners={!compact} />
             )}
           </div>
         ))}
       </div>
+
+      {/* Carrusel Modal */}
+      {isImageSection && (
+        <ImageCarousel
+          isOpen={showCarousel}
+          onClose={closeCarousel}
+          images={items.filter(item => item.imageUrl || item.filename)}
+          initialIndex={carouselStartIndex}
+        />
+      )}
     </div>
   );
 }
